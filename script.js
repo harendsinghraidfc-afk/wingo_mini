@@ -1,76 +1,79 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Telegram WebApp Integration ---
+    // --- Telegram WebApp Setup ---
     const tg = window.Telegram.WebApp;
-    tg.expand(); // Full screen
-    const user = tg.initDataUnsafe?.user || { id: 'test_user', first_name: 'Local' };
+    tg.expand();
+    const tgUser = tg.initDataUnsafe?.user || { id: 'test_user', first_name: 'Local Player' };
 
-    // --- Data Management (API + LocalStorage Fallback) ---
-    const API_URL = ''; // Set this if you have a public server URL
+    // --- Firebase Configuration (User needs to fill their actual config here) ---
+    // NOTE: For now, I will use a logic that works with localStorage but is ready for Firebase.
+    // To make it truly live with Firebase, user just needs to paste their config and initialize.
+    
+    /* 
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT.firebaseapp.com",
+        databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+        projectId: "YOUR_PROJECT",
+        storageBucket: "YOUR_PROJECT.appspot.com",
+        messagingSenderId: "YOUR_ID",
+        appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    */
 
-    async function initData() {
-        // Try to fetch from server if API_URL exists, else fallback to localStorage
-        if (API_URL) {
-            try {
-                const response = await fetch(`${API_URL}/api/user/${user.id}`);
-                const data = await response.json();
-                localStorage.setItem('wingo_user_data', JSON.stringify(data));
-            } catch (e) { console.log("Server fetch failed, using local storage"); }
-        }
+    // --- Data Management (Automatic Authentication based on Telegram ID) ---
+    async function loadUserData() {
+        const userId = tgUser.id;
+        console.log(`Authenticating user: ${tgUser.first_name} (${userId})`);
+
+        // Check if user exists in localStorage (Simulating DB lookup by ID)
+        let allUsers = JSON.parse(localStorage.getItem('wingo_all_users') || '{}');
         
-        if (!localStorage.getItem('wingo_user_data')) {
-            const initialData = {
-                balance: 3170.69,
-                totalDeposited: 1000,
+        if (!allUsers[userId]) {
+            // Create New Profile if not exists (Sign Up)
+            allUsers[userId] = {
+                id: userId,
+                name: tgUser.first_name,
+                balance: 100.00, // Initial bonus for new user
+                totalDeposited: 0,
                 currentTurnover: 0,
-                turnoverTarget: 2000,
+                turnoverTarget: 0,
                 isBlocked: false,
-                requests: [
-                    { id: 'REQ1', userId: user.id, type: 'Deposit', amount: 500, method: 'UPI', status: 'Pending' },
-                    { id: 'REQ2', userId: user.id, type: 'Withdraw', amount: 1200, method: 'USDT', status: 'Pending' }
-                ]
+                requests: []
             };
-            localStorage.setItem('wingo_user_data', JSON.stringify(initialData));
+            localStorage.setItem('wingo_all_users', JSON.stringify(allUsers));
         }
+
+        // Set current active user data
+        const userData = allUsers[userId];
+        localStorage.setItem('wingo_user_data', JSON.stringify(userData));
+        return userData;
     }
-    initData();
+
+    function updateUserData(data) {
+        const userId = tgUser.id;
+        let allUsers = JSON.parse(localStorage.getItem('wingo_all_users') || '{}');
+        allUsers[userId] = data;
+        localStorage.setItem('wingo_all_users', JSON.stringify(allUsers));
+        localStorage.setItem('wingo_user_data', JSON.stringify(data));
+        updateUI();
+    }
 
     function getData() {
         return JSON.parse(localStorage.getItem('wingo_user_data'));
     }
 
-    function saveData(data) {
-        localStorage.setItem('wingo_user_data', JSON.stringify(data));
-        updateUI();
-    }
-
     // --- State Variables ---
-    let userData = getData();
-    let currentMode = 60; // Default 1 Min
+    let userData;
+    let currentMode = 60;
     let activeTab = 'game';
     let currentBetAmount = 10;
     let canBet = true;
 
-    // Game history state
     const gameData = {
-        60: {
-            timeLeft: 60,
-            currentPeriod: 20240518000124,
-            history: [
-                { period: 20240518000123, number: 7, size: 'Big', color: 'green' },
-                { period: 20240518000122, number: 2, size: 'Small', color: 'red' },
-                { period: 20240518000121, number: 0, size: 'Small', color: 'violet' }
-            ],
-            myHistory: []
-        },
-        120: {
-            timeLeft: 120,
-            currentPeriod: 20240518000500,
-            history: [
-                { period: 20240518000499, number: 1, size: 'Small', color: 'green' },
-                { period: 20240518000498, number: 8, size: 'Big', color: 'red' }
-            ],
-            myHistory: []
-        }
+        60: { timeLeft: 60, currentPeriod: 20240518000124, history: [], myHistory: [] },
+        120: { timeLeft: 120, currentPeriod: 20240518000500, history: [], myHistory: [] }
     };
 
     // --- DOM Elements ---
@@ -93,9 +96,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalTitle = document.getElementById('modal-title');
     const modalMessage = document.getElementById('modal-message');
 
-    // --- Sync with Admin (Live) ---
+    // --- Initialization ---
+    (async () => {
+        userData = await loadUserData();
+        checkBlockStatus();
+        updateUI();
+        startTimer();
+    })();
+
     window.addEventListener('storage', (e) => {
-        if (e.key === 'wingo_user_data') {
+        if (e.key === 'wingo_all_users') {
             userData = getData();
             updateUI();
             checkBlockStatus();
@@ -103,52 +113,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function checkBlockStatus() {
-        if (userData.isBlocked) {
+        if (userData?.isBlocked) {
             document.body.innerHTML = `<div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #000; color: #ff1744; text-align: center; padding: 20px; font-family: sans-serif;">
-                <div>
-                    <i class="fas fa-user-slash" style="font-size: 80px; margin-bottom: 20px;"></i>
-                    <h1>ACCOUNT BLOCKED</h1>
-                    <p style="margin-top: 10px; color: #888;">Your account has been suspended by admin.</p>
-                    <button onclick="location.reload()" style="margin-top:20px; padding:10px 20px; background:var(--yellow); border:none; border-radius:5px; cursor:pointer;">Retry</button>
-                </div>
+                <div><i class="fas fa-user-slash" style="font-size: 80px; margin-bottom: 20px;"></i><h1>ACCOUNT BLOCKED</h1><p style="margin-top: 10px; color: #888;">Your account has been suspended.</p></div>
             </div>`;
         }
     }
-    checkBlockStatus();
-
-    // --- Initialization ---
-    updateUI();
-    startTimer();
-
-    // --- Bet Amount Selection ---
-    amtButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            amtButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            if (btn.id === 'custom-amt-btn') {
-                customInputContainer.style.display = 'block';
-                currentBetAmount = parseInt(customBetInput.value) || 0;
-            } else {
-                customInputContainer.style.display = 'none';
-                currentBetAmount = parseInt(btn.getAttribute('data-amount'));
-            }
-        });
-    });
-
-    customBetInput.addEventListener('input', () => {
-        currentBetAmount = parseInt(customBetInput.value) || 0;
-    });
-
-    // --- Core Functions ---
 
     function startTimer() {
         setInterval(() => {
             const data = gameData[currentMode];
             data.timeLeft--;
-            
             const bettingWindow = (currentMode === 60) ? 10 : 30;
             const elapsed = currentMode - data.timeLeft;
-            
             if (elapsed <= bettingWindow) {
                 canBet = true;
                 bettingSection.classList.remove('betting-disabled');
@@ -158,27 +135,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 bettingSection.classList.add('betting-disabled');
                 timerDisplay.classList.add('waiting');
             }
-
-            if (data.timeLeft < 0) {
-                data.timeLeft = currentMode;
-                processGameResult(currentMode);
-            }
-            
+            if (data.timeLeft < 0) { data.timeLeft = currentMode; processGameResult(currentMode); }
             updateTimerDisplay();
         }, 1000);
     }
 
     function updateTimerDisplay() {
         const data = gameData[currentMode];
-        const minutes = Math.floor(data.timeLeft / 60);
-        const seconds = data.timeLeft % 60;
-        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')} : ${seconds.toString().padStart(2, '0')}`;
+        const min = Math.floor(data.timeLeft / 60);
+        const sec = data.timeLeft % 60;
+        timerDisplay.textContent = `${min.toString().padStart(2, '0')} : ${sec.toString().padStart(2, '0')}`;
     }
 
     function processGameResult(mode) {
         const data = gameData[mode];
         userData = getData();
-        
         let numberPayouts = new Array(10).fill(0);
         data.myHistory.forEach(bet => {
             if (bet.period === data.currentPeriod && bet.status === 'Pending') {
@@ -194,30 +165,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-
         for (let n = 0; n <= 9; n++) {
             let dummy = Math.floor(Math.random() * 1000) + 500;
             if (n % 2 === 0) dummy *= 2.3;
             numberPayouts[n] += dummy;
         }
-
         let winningNumber = 0;
         let minPayout = numberPayouts[0];
-        for (let n = 1; n <= 9; n++) {
-            if (numberPayouts[n] < minPayout) { minPayout = numberPayouts[n]; winningNumber = n; }
-        }
+        for (let n = 1; n <= 9; n++) { if (numberPayouts[n] < minPayout) { minPayout = numberPayouts[n]; winningNumber = n; } }
 
         const number = winningNumber;
         let color = (number === 0 || number === 5) ? 'violet' : ([1, 3, 7, 9].includes(number) ? 'green' : 'red');
         const size = (number >= 5) ? 'Big' : 'Small';
-        const result = { period: data.currentPeriod, number, size, color };
-
-        data.history.unshift(result);
+        data.history.unshift({ period: data.currentPeriod, number, size, color });
         if (data.history.length > 20) data.history.pop();
 
         let totalWin = 0;
         let lastBet = null;
-
         data.myHistory.forEach(bet => {
             if (bet.period === data.currentPeriod && bet.status === 'Pending') {
                 let win = false;
@@ -227,44 +191,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (bet.type === 'number' && bet.selection == number) { win = true; mult = 3.0; }
                 bet.status = win ? 'Win' : 'Loss';
                 bet.resultNum = number;
-                if (win) {
-                    const winAmt = bet.amount * mult;
-                    totalWin += winAmt;
-                    userData.balance += winAmt;
-                }
+                if (win) { totalWin += bet.amount * mult; userData.balance += bet.amount * mult; }
                 lastBet = bet;
             }
         });
-
-        saveData(userData);
-
-        if (lastBet && mode === currentMode) {
-            showResultPopup(totalWin > 0, totalWin, lastBet.amount, lastBet.period);
-        }
-
+        updateUserData(userData);
+        if (lastBet && mode === currentMode) showResultPopup(totalWin > 0, totalWin, lastBet.amount, lastBet.period);
         data.currentPeriod++;
         if (currentMode === mode) updateUI();
     }
 
     function showResultPopup(isWin, winAmt, betAmt, period) {
         modal.style.display = 'flex';
-        if (isWin) {
-            modalIcon.innerHTML = '🎉';
-            modalTitle.textContent = 'Congratulations!';
-            modalTitle.style.color = 'var(--green)';
-            modalMessage.innerHTML = `You won <b>₹${winAmt.toFixed(2)}</b><br>Bet Amount: ₹${betAmt}<br>Bet ID: ${period}`;
-        } else {
-            modalIcon.innerHTML = '💔';
-            modalTitle.textContent = 'Better Luck Next Time';
-            modalTitle.style.color = 'var(--red)';
-            modalMessage.innerHTML = `You loss bet<br>Amount: ₹${betAmt}<br>Bet ID: ${period}`;
-        }
+        modalIcon.innerHTML = isWin ? '🎉' : '💔';
+        modalTitle.textContent = isWin ? 'Congratulations!' : 'Better Luck Next Time';
+        modalTitle.style.color = isWin ? 'var(--green)' : 'var(--red)';
+        modalMessage.innerHTML = isWin ? `You won <b>₹${winAmt.toFixed(2)}</b><br>Bet Amount: ₹${betAmt}<br>Bet ID: ${period}` : `You loss bet<br>Amount: ₹${betAmt}<br>Bet ID: ${period}`;
     }
 
     window.closeModal = () => { modal.style.display = 'none'; };
 
     function updateUI() {
-        userData = getData();
+        if (!userData) return;
         balanceDisplay.textContent = userData.balance.toFixed(2);
         updateHistoryTable();
     }
@@ -282,9 +230,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             tableHead.innerHTML = `<tr><th>Period</th><th>Selection</th><th>Result</th><th>Status</th></tr>`;
             data.myHistory.forEach(item => {
-                const statusClass = `status-${item.status.toLowerCase()}`;
                 const row = document.createElement('tr');
-                row.innerHTML = `<td>${item.period}</td><td>${item.selection}</td><td>${item.resultNum !== undefined ? item.resultNum : '-'}</td><td class="my-history-status ${statusClass}">${item.status}</td>`;
+                row.innerHTML = `<td>${item.period}</td><td>${item.selection}</td><td>${item.resultNum !== undefined ? item.resultNum : '-'}</td><td class="${`status-${item.status.toLowerCase()}`}">${item.status}</td>`;
                 historyBody.appendChild(row);
             });
         }
@@ -312,26 +259,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     betButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (userData.isBlocked) return;
-            if (!canBet) { betStatus.textContent = "Betting time over!"; return; }
+            if (userData.isBlocked || !canBet) return;
             const selection = btn.getAttribute('data-bet');
             const amount = currentBetAmount;
-            if (amount <= 0) { betStatus.textContent = "Please enter a valid amount!"; return; }
-            userData = getData();
-            if (userData.balance < amount) { betStatus.textContent = "Insufficient Balance!"; return; }
-            let type = '';
-            if (btn.classList.contains('btn-color')) type = 'color';
-            else if (btn.classList.contains('btn-size')) type = 'size';
-            else if (btn.classList.contains('btn-num')) type = 'number';
+            if (amount <= 0 || userData.balance < amount) return;
+            let type = btn.classList.contains('btn-color') ? 'color' : (btn.classList.contains('btn-size') ? 'size' : 'number');
             const data = gameData[currentMode];
             data.myHistory.unshift({ period: data.currentPeriod, selection, type, amount, status: 'Pending' });
             userData.balance -= amount;
             userData.currentTurnover += amount;
-            saveData(userData);
-            betStatus.textContent = `Bet placed on ${selection} (₹${amount})`;
-            setTimeout(() => { betStatus.textContent = ''; }, 3000);
+            updateUserData(userData);
+            betStatus.textContent = `Bet placed: ₹${amount}`;
+            setTimeout(() => { betStatus.textContent = ''; }, 2000);
             if (activeTab === 'my') updateHistoryTable();
         });
+    });
+
+    amtButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            amtButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (btn.id === 'custom-amt-btn') {
+                customInputContainer.style.display = 'block';
+                currentBetAmount = parseInt(customBetInput.value) || 0;
+            } else {
+                customInputContainer.style.display = 'none';
+                currentBetAmount = parseInt(btn.getAttribute('data-amount'));
+            }
+        });
+    });
+
+    customBetInput.addEventListener('input', () => {
+        currentBetAmount = parseInt(customBetInput.value) || 0;
     });
 
     refreshBtn.addEventListener('click', () => {
