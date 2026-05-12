@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Withdraw INR - WinGo</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .withdraw-container { padding: 20px; }
+        .back-btn { color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .withdraw-form { margin-top: 20px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 13px; }
+        .input-group input { width: 100%; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; color: white; font-size: 15px; }
+        .withdraw-info { background: rgba(255, 145, 0, 0.1); border-radius: 10px; padding: 15px; margin-top: 20px; border: 1px dashed var(--orange); }
+        .withdraw-info p { font-size: 12px; color: var(--orange); margin-bottom: 5px; }
+        .confirm-btn { width: 100%; background: var(--red); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 25px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="app-container withdraw-container">
+        <a href="index.html" class="back-btn">
+            <i class="fas fa-arrow-left"></i>
+            <span>Withdraw INR</span>
+        </a>
+
+        <div class="wallet-section" style="margin: 0; padding: 20px;">
+            <div class="wallet-balance">Withdrawable Balance</div>
+            <div class="balance-amount" style="font-size: 24px; margin-bottom: 10px; color: var(--red);">₹ <span id="w-balance">3170.69</span></div>
+            
+            <div id="turnover-container" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 10px; margin-top: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;">
+                    <span>Bet Turnover (2x)</span>
+                    <span id="turnover-text">0 / 2000</span>
+                </div>
+                <div style="width: 100%; height: 6px; background: #333; border-radius: 3px; overflow: hidden;">
+                    <div id="turnover-bar" style="width: 0%; height: 100%; background: var(--yellow); transition: width 0.3s;"></div>
+                </div>
+                <p id="turnover-warning" style="font-size: 10px; color: var(--red); margin-top: 5px; display: none;">* Complete turnover to enable withdrawal</p>
+            </div>
+        </div>
+
+        <div class="withdraw-form">
+            <div class="tabs" style="margin: 0 0 20px 0;">
+                <button class="tab active" id="upi-tab" onclick="switchMethod('upi')">UPI</button>
+                <button class="tab" id="usdt-tab" onclick="switchMethod('usdt')">USDT</button>
+            </div>
+
+            <div id="upi-fields">
+                <div class="input-group">
+                    <label>UPI ID (VPA)</label>
+                    <input type="text" placeholder="example@ybl">
+                </div>
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input type="text" placeholder="As per bank records">
+                </div>
+            </div>
+
+            <div id="usdt-fields" style="display: none;">
+                <div class="input-group">
+                    <label>USDT Address (TRC20)</label>
+                    <input type="text" placeholder="Txxxxxxxxxxxxxxxxxxxxxxxxx">
+                </div>
+                <div class="input-group">
+                    <label>Network</label>
+                    <input type="text" value="TRON (TRC20)" readonly style="opacity: 0.7;">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Withdrawal Amount (INR)</label>
+                <input type="number" placeholder="Min ₹500" id="withdraw-amount" oninput="calculateWithdrawUSDT()">
+                <div id="withdraw-conversion" style="margin-top: 10px; font-size: 13px; color: var(--yellow); display: none;">
+                    <i class="fas fa-exchange-alt"></i> You will receive: <span id="usdt-receive">0.00</span> USDT (Rate: ₹90/USDT)
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let currentMethod = 'upi';
+            const GOOGLE_RATE = 95.74; // Current Google Rate
+            const PREMIUM = 0.03; // 3% Premium
+            const WITHDRAW_RATE = parseFloat((GOOGLE_RATE * (1 + PREMIUM)).toFixed(2)); // Rate with 3% Premium
+
+            // Load state from localStorage
+            window.onload = function() {
+                const balance = localStorage.getItem('wingo_balance') || 3170.69;
+                const turnover = parseFloat(localStorage.getItem('wingo_turnover') || 0);
+                const target = parseFloat(localStorage.getItem('wingo_target') || 2000);
+                
+                document.getElementById('w-balance').textContent = parseFloat(balance).toFixed(2);
+                document.getElementById('turnover-text').textContent = `${turnover.toFixed(0)} / ${target.toFixed(0)}`;
+                
+                const progress = Math.min((turnover / target) * 100, 100);
+                document.getElementById('turnover-bar').style.width = progress + '%';
+                
+                if (turnover < target) {
+                    document.getElementById('turnover-warning').style.display = 'block';
+                    document.querySelector('.confirm-btn').style.opacity = '0.5';
+                    document.querySelector('.confirm-btn').disabled = true;
+                    document.querySelector('.confirm-btn').textContent = 'Turnover Incomplete';
+                }
+            };
+
+            function switchMethod(method) {
+                currentMethod = method;
+                const upiTab = document.getElementById('upi-tab');
+                const usdtTab = document.getElementById('usdt-tab');
+                const upiFields = document.getElementById('upi-fields');
+                const usdtFields = document.getElementById('usdt-fields');
+                const conversionDiv = document.getElementById('withdraw-conversion');
+                
+                // Update rate display text
+                const rateText = conversionDiv.querySelector('span#usdt-receive').parentNode;
+                rateText.innerHTML = `<i class="fas fa-exchange-alt"></i> You will receive: <span id="usdt-receive">0.00</span> USDT (Rate: ₹${WITHDRAW_RATE}/USDT)`;
+
+                if (method === 'upi') {
+                    upiTab.classList.add('active');
+                    usdtTab.classList.remove('active');
+                    upiFields.style.display = 'block';
+                    usdtFields.style.display = 'none';
+                    conversionDiv.style.display = 'none';
+                } else {
+                    usdtTab.classList.add('active');
+                    upiTab.classList.remove('active');
+                    usdtFields.style.display = 'block';
+                    upiFields.style.display = 'none';
+                    conversionDiv.style.display = 'block';
+                }
+                calculateWithdrawUSDT();
+            }
+
+            function calculateWithdrawUSDT() {
+                if (currentMethod === 'usdt') {
+                    const inr = document.getElementById('withdraw-amount').value;
+                    const usdt = (inr / WITHDRAW_RATE).toFixed(2);
+                    document.getElementById('usdt-receive').textContent = usdt;
+                }
+            }
+        </script>
+
+        <div class="withdraw-info">
+            <p><i class="fas fa-info-circle"></i> Withdrawal takes 2-24 hours to process.</p>
+            <p><i class="fas fa-info-circle"></i> Minimum withdrawal amount is ₹500.</p>
+        </div>
+
+        <button class="confirm-btn">Confirm Withdrawal</button>
+    </div>
+</body>
+</html>

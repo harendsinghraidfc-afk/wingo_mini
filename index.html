@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WinGo Game</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Wallet Section -->
+        <section class="wallet-section">
+            <div class="wallet-balance">
+                <i class="fas fa-wallet"></i>
+                <span>Wallet Balance</span>
+            </div>
+            <div class="balance-amount">
+                <span class="currency">₹</span>
+                <span class="amount">3170.69</span>
+                <i class="fas fa-sync-alt refresh-btn"></i>
+            </div>
+            <div class="action-buttons">
+                <a href="deposit.html" class="btn btn-deposit" style="text-decoration: none; text-align: center;">Deposit</a>
+                <a href="withdraw.html" class="btn btn-withdraw" style="text-decoration: none; text-align: center;">Withdraw</a>
+            </div>
+        </section>
+
+        <!-- Game Info Section -->
+        <section class="game-info-section">
+            <div class="game-modes">
+                <div class="game-mode active" data-duration="60">
+                    <div class="mode-icon gold">
+                        <span class="letter">Y</span>
+                    </div>
+                    <div class="mode-details">
+                        <span class="mode-name">Win Go</span>
+                        <span class="mode-time">1 Min</span>
+                    </div>
+                </div>
+                <div class="running-time">
+                    <span class="label">Running Time</span>
+                    <div class="timer">00 : 60</div>
+                </div>
+                <div class="game-mode" data-duration="120">
+                    <div class="mode-icon silver">
+                        <span class="letter">Y</span>
+                    </div>
+                    <div class="mode-details">
+                        <span class="mode-name">Win Go</span>
+                        <span class="mode-time">2 Min</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Betting Controls -->
+        <section class="betting-section">
+            <div class="color-buttons">
+                <button class="btn-color green" data-bet="green">Green</button>
+                <button class="btn-color violet" data-bet="violet">Violet</button>
+                <button class="btn-color red" data-bet="red">Red</button>
+            </div>
+
+            <div class="number-buttons">
+                <button class="btn-num violet" data-bet="0">0</button>
+                <button class="btn-num green" data-bet="1">1</button>
+                <button class="btn-num red" data-bet="2">2</button>
+                <button class="btn-num green" data-bet="3">3</button>
+                <button class="btn-num red" data-bet="4">4</button>
+                <button class="btn-num violet" data-bet="5">5</button>
+                <button class="btn-num red" data-bet="6">6</button>
+                <button class="btn-num green" data-bet="7">7</button>
+                <button class="btn-num red" data-bet="8">8</button>
+                <button class="btn-num green" data-bet="9">9</button>
+            </div>
+
+            <div class="size-buttons">
+                <button class="btn-size small" data-bet="Small">Small</button>
+                <button class="btn-size big" data-bet="Big">Big</button>
+            </div>
+
+            <div class="bet-amount-selector">
+                <div class="amount-buttons">
+                    <button class="btn-amt active" data-amount="10">10</button>
+                    <button class="btn-amt" data-amount="20">20</button>
+                    <button class="btn-amt" data-amount="50">50</button>
+                    <button class="btn-amt" data-amount="100">100</button>
+                    <button class="btn-amt" id="custom-amt-btn">Custom</button>
+                </div>
+                <div id="custom-input-container" style="display: none; margin-top: 10px;">
+                    <input type="number" id="custom-bet-input" placeholder="Enter amount" min="10" style="width: 100%; background: var(--card-bg); border: 1px solid var(--yellow); padding: 8px; border-radius: 5px; color: white;">
+                </div>
+            </div>
+            
+            <div id="bet-status" class="bet-status">
+                <!-- Current selection will show here -->
+            </div>
+        </section>
+
+        <!-- History Tabs -->
+        <section class="history-section">
+            <div class="tabs">
+                <button class="tab active" data-tab="game">Game History</button>
+                <button class="tab" data-tab="my">My History</button>
+            </div>
+
+            <table class="history-table">
+                <thead id="table-head">
+                    <tr>
+                        <th>Period</th>
+                        <th>Number</th>
+                        <th>Big/Small</th>
+                        <th>Color</th>
+                    </tr>
+                </thead>
+                <tbody id="history-body">
+                    <!-- History rows will be populated by JS -->
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <!-- Result Popup Modal -->
+    <div id="result-modal" class="modal">
+        <div class="modal-content">
+            <div id="modal-icon"></div>
+            <h2 id="modal-title"></h2>
+            <p id="modal-message"></p>
+            <button class="modal-close-btn" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

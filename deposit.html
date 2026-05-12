@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deposit INR - WinGo</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .deposit-container { padding: 20px; }
+        .back-btn { color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .amount-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+        .amount-item { background: var(--card-bg); padding: 15px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s; }
+        .amount-item:hover { border-color: var(--yellow); color: var(--yellow); }
+        .input-group { margin-top: 25px; }
+        .input-group label { display: block; color: var(--text-secondary); margin-bottom: 10px; font-size: 14px; }
+        .input-group input { width: 100%; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; color: white; font-size: 18px; }
+        .payment-methods { margin-top: 30px; }
+        .method-item { display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05); }
+        .method-item i { font-size: 24px; color: var(--blue); }
+        .confirm-btn { width: 100%; background: var(--yellow); color: black; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 30px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="app-container deposit-container">
+        <a href="index.html" class="back-btn">
+            <i class="fas fa-arrow-left"></i>
+            <span>Deposit INR</span>
+        </a>
+
+        <div class="wallet-section" style="margin: 0; padding: 20px;">
+            <div class="wallet-balance">Balance</div>
+            <div class="balance-amount" style="font-size: 24px; margin-bottom: 0;">₹ 3170.69</div>
+        </div>
+
+        <div class="input-group">
+            <label>Enter Deposit Amount (INR)</label>
+            <input type="number" placeholder="Min ₹100" id="deposit-amount" oninput="calculateUSDT()">
+            <div id="conversion-rate" style="margin-top: 10px; font-size: 13px; color: var(--yellow); display: none;">
+                <i class="fas fa-exchange-alt"></i> You need to pay: <span id="usdt-pay">0.00</span> USDT (Rate: ₹92/USDT)
+            </div>
+        </div>
+
+        <div class="amount-grid">
+            <div class="amount-item" onclick="setAmount(500)">₹500</div>
+            <div class="amount-item" onclick="setAmount(1000)">₹1000</div>
+            <div class="amount-item" onclick="setAmount(2000)">₹2000</div>
+            <div class="amount-item" onclick="setAmount(5000)">₹5000</div>
+            <div class="amount-item" onclick="setAmount(10000)">₹10000</div>
+            <div class="amount-item" onclick="setAmount(20000)">₹20000</div>
+        </div>
+
+        <div class="payment-methods">
+            <label class="label">Select Deposit Method</label>
+            <div class="method-item active" id="upi-method" onclick="selectMethod('upi')" style="border-color: var(--yellow); cursor: pointer;">
+                <i class="fas fa-qrcode"></i>
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: bold;">UPI Deposit</span>
+                    <span style="font-size: 11px; color: var(--text-secondary);">Fast INR Transfer</span>
+                </div>
+            </div>
+            <div class="method-item" id="usdt-method" onclick="selectMethod('usdt')" style="cursor: pointer;">
+                <i class="fas fa-coins" style="color: #26a17b;"></i>
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-weight: bold;">USDT (TRC20)</span>
+                    <span style="font-size: 11px; color: var(--text-secondary);">Secure Crypto Deposit</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="confirm-btn">Deposit Now</button>
+    </div>
+
+    <script>
+        let selectedMethod = 'upi';
+        const GOOGLE_RATE = 95.74; // Current Google Rate
+        const PREMIUM = 0.03; // 3% Premium
+        const RATE = parseFloat((GOOGLE_RATE * (1 + PREMIUM)).toFixed(2)); // Rate with 3% Premium
+
+        function setAmount(amt) {
+            document.getElementById('deposit-amount').value = amt;
+            calculateUSDT();
+        }
+
+        function selectMethod(method) {
+            selectedMethod = method;
+            document.getElementById('upi-method').style.borderColor = method === 'upi' ? 'var(--yellow)' : 'rgba(255,255,255,0.05)';
+            document.getElementById('usdt-method').style.borderColor = method === 'usdt' ? 'var(--yellow)' : 'rgba(255,255,255,0.05)';
+            
+            const conversionDiv = document.getElementById('conversion-rate');
+            const rateSpan = document.getElementById('conversion-rate').querySelector('span#usdt-pay').parentNode;
+            rateSpan.innerHTML = `<i class="fas fa-exchange-alt"></i> You need to pay: <span id="usdt-pay">0.00</span> USDT (Rate: ₹${RATE}/USDT)`;
+            
+            conversionDiv.style.display = method === 'usdt' ? 'block' : 'none';
+            calculateUSDT();
+        }
+
+        function calculateUSDT() {
+            if (selectedMethod === 'usdt') {
+                const inr = document.getElementById('deposit-amount').value;
+                const usdt = (inr / RATE).toFixed(2);
+                document.getElementById('usdt-pay').textContent = usdt;
+            }
+        }
+    </script>
+</body>
+</html>
